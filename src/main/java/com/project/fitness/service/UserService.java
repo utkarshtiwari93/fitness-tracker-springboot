@@ -1,10 +1,14 @@
 package com.project.fitness.service;
 
+import com.project.fitness.dto.LoginRequest;
 import com.project.fitness.dto.RegisterRequest;
 import com.project.fitness.dto.UserResponse;
 import com.project.fitness.model.User;
+import com.project.fitness.model.UserRole;
 import com.project.fitness.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -16,13 +20,17 @@ import java.util.List;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public UserResponse register(RegisterRequest request) {
+        UserRole role = request.getRole()!=null ? request.getRole()
+                : UserRole.USER;
         User user = User.builder()
                 .email(request.getEmail())
                 .firstname(request.getFirstname())
                 .lastname(request.getLastname())
-                .password(request.getPassword())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .role(role)
                 .build();
 //        User user = new User(
 //                null ,
@@ -40,7 +48,7 @@ public class UserService {
        return mapToResponse(savedUser);
     }
 
-    private UserResponse mapToResponse(User savedUser) {
+    public UserResponse mapToResponse(User savedUser) {
         UserResponse response = new UserResponse();
         response.setId(savedUser.getId());
         response.setEmail(savedUser.getEmail());
@@ -51,5 +59,18 @@ public class UserService {
         response.setUpdatedAt(savedUser.getUpdatedAt());
 
         return response ;
+    }
+
+    public User autheticate(LoginRequest loginRequest) {
+        User user = userRepository.findByEmail(loginRequest.getEmail());
+
+        if (user == null) {
+            throw new RuntimeException("invalid Credentials");
+        }
+
+        if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
+            throw new RuntimeException("invalid Credentials");
+        }
+        return user ;
     }
 }
